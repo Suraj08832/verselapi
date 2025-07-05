@@ -1,59 +1,36 @@
 import os
+import tempfile
 import requests
-from http.cookiejar import CookieJar
+from http.cookiejar import MozillaCookieJar
 from flask import Flask, request, jsonify
 from flask_caching import Cache
 from youtube_search import YoutubeSearch
 import yt_dlp
 
-# -----------------------------------------------------------------------------
-# FORCE yt-dlp to use /tmp for all its cache & cookies, and disable saving
-# -----------------------------------------------------------------------------
-os.environ['XDG_CACHE_HOME'] = '/tmp'
+# -------------------------
+# Use Temp Directory for All File Operations (Vercel Compatibility)
+# -------------------------
+# Determine writable temp directory
+temp_dir = os.environ.get('TMPDIR', tempfile.gettempdir())
+# Paths for cookie storage
+cookie_file = os.path.join(temp_dir, 'cookies.txt')
+cookies_file = cookie_file
 
-# -----------------------------------------------------------------------------
-# Hard‑coded Cookies and write out a Netscape cookiefile at /tmp/yt_cookies.txt
-# -----------------------------------------------------------------------------
-COOKIE_VALUES = {
-    'LOGIN_INFO': 'AFmmF2swRgIhAICJmHlWbD7nJS16hoMoCsVXttuU544zQZKDunt7Or2uAiEAouQIbgnIHOrg5ain1KnjPV8S6IS5Y_qjfhJTA9q8mGw:QUQ3MjNmd0VJOV8wcEZuMktZMU1mcWVLLXVyUEtlUDU3TTVZRU1Sc1dEeHJIMU5TMXRYMkRKZXJxaHFWbG5OZjB6RkYwMmh0YVozOVhCakdMRGd3NnNaeWdrMkdzWUd3SGNIMDFrUG9Qb1lDbFMzbmdrWlJONUhkNXltU2ppZ0x2Q0dlc3NoUEdpMEdCV3FXT1R6ZXNidWNPUjdSX2NqTi1B',
-    'HSID': 'AqxzJkrRI80ug-Unq',
-    'SSID': 'ASOzLUVqI1P71r82q',
-    'APISID': 'VLH8UDsyYsivKSgP/A_vem1O8GlvhnRnFx',
-    'SAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
-    '__Secure-1PAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
-    '__Secure-3PAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
-    'PREF': 'f6=40000000&tz=Asia.Colombo&f5=30000&f7=150',
-    'SID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF4kUw7Knlv8EknC7Y-M7ZGwgACgYKASwSARASFQHGX2Micxhn9PXb5mM6vmeE_LvZAhoVAUF8yKpG8SmyvxSx-rDntMK16ZnV0076',
-    '__Secure-1PSID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF40YPCpUinYvmHSr9xkGq77wACgYKAacSARASFQHGX2Mih9f0wCcnd3k0v_DvQdAN2hoVAUF8yKoyTxZwx-t5QxF58TaB-o5R0076',
-    '__Secure-3PSID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF4Oq1lVAdi9Uz-mkNwVNDj9AACgYKAQkSARASFQHGX2Mi-hBYKbdFNhGbYqd0-YzSKxoVAUF8yKriEnG14NmxOjAUvQiVlfQh0076',
-    '__Secure-1PSIDTS': 'sidts-CjIB5H03PzWd07YK-G0dpwGp8f_wgb7YCFlOlypp3Htf_qgjeQzbPiHrlqukb18A0WGgERAA',
-    '__Secure-3PSIDTS': 'sidts-CjIB5H03PzWd07YK-G0dpwGp8f_wgb7YCFlOlypp3Htf_qgjeQzbPiHrlqukb18A0WGgERAA',
-    'SIDCC': 'AKEyXzUQavgtlZI1LUgVrDR2YVqh_2NK_9odEFlj17G8TjzeVhs-xKYk9IHWZZANvriZ92rcxKw',
-    '__Secure-1PSIDCC': 'AKEyXzXFtgaqqtRPLmRdTyUkDx7cS9SOuOIqosRNvK8XAuE25WQrLGzLHS_61PGvTO7J24rYtw',
-    '__Secure-3PSIDCC': 'AKEyXzVgaSjdpcHjG0fqP2lNHRp1P0JzsQqXWV79ZKpO57nKfgPJUq5Lnssr1lh7cMoBap5w6qc',
-    'VISITOR_INFO1_LIVE': 'ohuFGFFt8z0',
-    'VISITOR_PRIVACY_METADATA': 'CgJJThIEGgAgMA%3D%3D',
-    '__Secure-ROLLOUT_TOKEN': 'CNm9w7Xfyc3cbhDfzq6gn8qMAxiq_sftw6OOAw%3D%3D',
-    'YSC': 'HtrEokFmzxQ'
-}
+# -------------------------
+# Load Cookies and Patch requests.get
+# -------------------------
+if os.path.exists(cookie_file):
+    cookie_jar = MozillaCookieJar(cookie_file)
+    cookie_jar.load(ignore_discard=True, ignore_expires=True)
+    session = requests.Session()
+    session.cookies = cookie_jar
+    original_get = requests.get
 
-# Write the Netscape cookiefile
-cookie_file_path = '/tmp/yt_cookies.txt'
-with open(cookie_file_path, 'w', encoding='utf-8') as f:
-    f.write('# Netscape HTTP Cookie File\n')
-    for name, value in COOKIE_VALUES.items():
-        f.write('.youtube.com\tTRUE\t/\tTRUE\t2147483647\t{}\t{}\n'.format(name, value))
+    def get_with_cookies(url, **kwargs):
+        kwargs.setdefault('cookies', session.cookies)
+        return original_get(url, **kwargs)
 
-# Also set up requests.Session() to use those cookies
-session = requests.Session()
-for name, value in COOKIE_VALUES.items():
-    session.cookies.set(name, value, domain=".youtube.com", path="/")
-
-_original_get = requests.get
-def get_with_cookies(url, **kwargs):
-    kwargs.setdefault('cookies', session.cookies)
-    return _original_get(url, **kwargs)
-requests.get = get_with_cookies
+    requests.get = get_with_cookies
 
 # -------------------------
 # Flask App Initialization
@@ -61,11 +38,11 @@ requests.get = get_with_cookies
 app = Flask(__name__)
 
 # -------------------------
-# Cache Configuration
+# Cache Configuration (In-Memory)
 # -------------------------
 cache = Cache(app, config={
-    'CACHE_TYPE': 'simple',
-    'CACHE_DEFAULT_TIMEOUT': 0  # default “infinite” for manual caching
+    'CACHE_TYPE': 'simple',  # In-memory
+    'CACHE_DEFAULT_TIMEOUT': 0  # "Infinite" until invalidated
 })
 
 # -------------------------
@@ -94,18 +71,14 @@ ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
     'format': 'bestvideo+bestaudio/best',
-    'cookiefile': cookie_file_path,
-    'save_cookies': False,
-    'cachedir': False,
+    'cookiefile': cookies_file
 }
 ydl_opts_meta = {
     'quiet': True,
     'skip_download': True,
     'simulate': True,
     'noplaylist': True,
-    'cookiefile': cookie_file_path,
-    'save_cookies': False,
-    'cachedir': False,
+    'cookiefile': cookies_file
 }
 
 def extract_info(url=None, search_query=None, opts=None):
@@ -127,11 +100,13 @@ def extract_info(url=None, search_query=None, opts=None):
 def get_size_bytes(fmt):
     return fmt.get('filesize') or fmt.get('filesize_approx') or 0
 
+
 def format_size(bytes_val):
     if bytes_val >= 1e9: return f"{bytes_val/1e9:.2f} GB"
     if bytes_val >= 1e6: return f"{bytes_val/1e6:.2f} MB"
     if bytes_val >= 1e3: return f"{bytes_val/1e3:.2f} KB"
     return f"{bytes_val} B"
+
 
 def build_formats_list(info):
     fmts = []
@@ -161,7 +136,7 @@ def build_formats_list(info):
     return fmts
 
 # -------------------------
-# Flask Routes with Manual Caching for Metadata
+# Flask Routes (with Manual Caching)
 # -------------------------
 @app.route('/')
 def home():
@@ -174,6 +149,7 @@ def home():
     data = {'message': '✅ YouTube API is alive'}
     cache.set(key, data)
     return jsonify(data)
+
 
 @app.route('/api/fast-meta')
 def api_fast_meta():
