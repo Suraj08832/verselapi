@@ -1,34 +1,47 @@
 import os
 import requests
-from http.cookiejar import MozillaCookieJar
+from http.cookiejar import CookieJar
 from flask import Flask, request, jsonify
 from flask_caching import Cache
 from youtube_search import YoutubeSearch
 import yt_dlp
-import yt_dlp.utils
 
 # -------------------------
-# Ensure writable tmp directory for yt-dlp cache & cookies
+# Hard‑coded Cookies Setup
 # -------------------------
-tmp_dir = '/tmp/yt_dlp'
-os.makedirs(tmp_dir, exist_ok=True)
-# Redirect default cache home to tmp to avoid RO filesystem errors
-os.environ['XDG_CACHE_HOME'] = tmp_dir
-cookie_file = os.path.join(tmp_dir, 'cookies.txt')
+COOKIE_VALUES = {
+    'HSID': 'AlKMxCmGETuUEsp1_',
+    'SSID': 'AB64ZeQGzzRHKE_Z6',
+    'APISID': 'EiB0VDTpxjSDvgT4/AmFgDk-WWb_UosYdr',
+    'SAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
+    '__Secure-1PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
+    '__Secure-3PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
+    'LOGIN_INFO': 'AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg:QUQ3MjNmejJfbDJoZXNYMENMVVhDTk5Eck5MTThOWDdoSTRBYXFtOUJXby1KS19lQmRTbTFMbDZTZFloMWkyWTRBYllzNnpFX09XTHE1c1hQb0IxRW9sNklXaUVPUWRFbXpKNUd2MlJaZHJselVkd0VzekpTU0YwVWQwWTh1VFhvQUt4WC1aSEtMc05JNEdMMG53N0ZYWElaMXhMZUUwRm9n',
+    '__Secure-1PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
+    '__Secure-3PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
+    'SID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lym5OZNnXjAKuiGufceOlGeQACgYKAZASARESFQHGX2MiNWRWZmK_nlUa-I4_04vLuxoVAUF8yKpe0JDFVnUcmsmFbdzZ2Dgy0076',
+    '__Secure-1PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyqpjlWpI7BisPMZl9wyUtEwACgYKAbASARESFQHGX2MiCrZCmAFB7SL-wz2tT4NgpxoVAUF8yKrjed1Nw8Gabz2KSoYeTIBz0076',
+    '__Secure-3PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyWUiftngWwTkiz5zRpoCT-QACgYKAQ0SARESFQHGX2MiBjGEm969ztu0-M_FyoBkIhoVAUF8yKpcO6OqxylgxcPmj4xRFwQU0076',
+    'PREF': 'f6=40000000&tz=Asia.Colombo',
+    'ST-3opvp5': 'session_logininfo=AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg%3AQUQ3MjNmejJfbDJoZXNYMENMVVhDTk5Eck5MTThOWDdoSTRBYXFtOUJXby1KS19lQmRTbTFMbDZTZFloMWkyWTRBYllzNnpFX09XTHE1c1hQb0IxRW9sNklXaUVPUWRFbXpKNUd2MlJaZHJselVkd0VzekpTU0YwVWQwWTh1VFhvQUt4WC1aSEtMc05JNEdMMG53N0ZYWElaMXhMZUUwRm9n',
+    'SIDCC': 'AKEyXzWzy28BoNuI4CMv69tnHcdz4VMxy2p35aWQlH_zwre7AGBoAjdihXCt8Zro3KHNv7RI',
+    '__Secure-1PSIDCC': 'AKEyXzWv6PlzpF648TXQ3WsnOuBZu1aTRaF-o5R3s49SFqP0CyXtEJlcWvgiCFNHQ4R7JcCCIQ',
+    '__Secure-3PSIDCC': 'AKEyXzVSdHRpD1oYl4zX8LjBBNvIHCO2eYL6prRtpc7ijxxR4-W6hPXfVtl2eEL7lKPHljZsLg',
+    'YSC': 'UgdL8arXsKI',
+    'VISITOR_INFO1_LIVE': 'PSQSCixrKKE',
+    'VISITOR_PRIVACY_METADATA': 'CgJJThIEGgAgIg%3D%3D',
+    '__Secure-ROLLOUT_TOKEN': 'CM3mv7nHobyXSxDhxIKuyJaOAxjSrfauyJaOAw%3D%3D'
+}
 
-# -------------------------
-# Load Cookies and Patch requests.get (if cookie_file present)
-# -------------------------
-if os.path.exists(cookie_file):
-    cookie_jar = MozillaCookieJar(cookie_file)
-    cookie_jar.load(ignore_discard=True, ignore_expires=True)
-    session = requests.Session()
-    session.cookies = cookie_jar
-    original_get = requests.get
-    def get_with_cookies(url, **kwargs):
-        kwargs.setdefault('cookies', session.cookies)
-        return original_get(url, **kwargs)
-    requests.get = get_with_cookies
+session = requests.Session()
+for name, value in COOKIE_VALUES.items():
+    session.cookies.set(name, value, domain=".youtube.com", path="/")
+
+_original_get = requests.get
+def get_with_cookies(url, **kwargs):
+    kwargs.setdefault('cookies', session.cookies)
+    return _original_get(url, **kwargs)
+requests.get = get_with_cookies
 
 # -------------------------
 # Flask App Initialization
@@ -40,7 +53,7 @@ app = Flask(__name__)
 # -------------------------
 cache = Cache(app, config={
     'CACHE_TYPE': 'simple',
-    'CACHE_DEFAULT_TIMEOUT': 0
+    'CACHE_DEFAULT_TIMEOUT': 0  # default “infinite” for manual caching
 })
 
 # -------------------------
@@ -65,39 +78,36 @@ def to_iso_duration(duration_str: str) -> str:
 # -------------------------
 # yt-dlp Options and Extraction
 # -------------------------
-common_opts = {
+cookies_file = 'cookies.txt'
+ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
-    'cookiefile': cookie_file,
-    'nocache-dir': True,
-    'cache_dir': tmp_dir
+    'format': 'bestvideo+bestaudio/best',
+    'cookiefile': cookies_file
 }
-ydl_opts_full = {**common_opts, 'format': 'bestvideo+bestaudio/best'}
-ydl_opts_meta = {**common_opts, 'simulate': True, 'noplaylist': True}
-
-# Extract info with graceful error handling
+ydl_opts_meta = {
+    'quiet': True,
+    'skip_download': True,
+    'simulate': True,
+    'noplaylist': True,
+    'cookiefile': cookies_file
+}
 
 def extract_info(url=None, search_query=None, opts=None):
     ydl_opts = opts or ydl_opts_full
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            if search_query:
-                result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
-                entries = result.get('entries')
-                if not entries:
-                    return None, {'error': 'No search results'}, 404
-                return entries[0], None, None
-            else:
-                info = ydl.extract_info(url, download=False)
-                return info, None, None
-    except yt_dlp.utils.DownloadError as e:
-        msg = str(e)
-        if 'Sign in to confirm' in msg:
-            return None, {'error': 'Authentication required: supply valid YouTube cookies.txt'}, 403
-        return None, {'error': msg}, 500
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        if search_query:
+            result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+            entries = result.get('entries')
+            if not entries:
+                return None, {'error': 'No search results'}, 404
+            return entries[0], None, None
+        else:
+            info = ydl.extract_info(url, download=False)
+            return info, None, None
 
 # -------------------------
-# Format Helpers
+# Format Helpers for yt-dlp
 # -------------------------
 def get_size_bytes(fmt):
     return fmt.get('filesize') or fmt.get('filesize_approx') or 0
@@ -136,7 +146,7 @@ def build_formats_list(info):
     return fmts
 
 # -------------------------
-# Flask Routes
+# Flask Routes with Manual Caching for Metadata
 # -------------------------
 @app.route('/')
 def home():
@@ -241,7 +251,7 @@ def api_meta():
     if cached:
         return jsonify(cached)
     if not (q or u):
-        return jsonify({'error': 'Provide "url" or "search"'}), 400
+        return jsonify({'error': 'Provide "url" or "search" parameter'}), 400
     info, err, code = extract_info(u or None, q or None, opts=ydl_opts_meta)
     if err:
         return jsonify(err), code
@@ -431,3 +441,7 @@ def api_video():
         return jsonify(err), code
     vfmts = [f for f in build_formats_list(info) if f['kind'] in ('video-only','progressive')]
     return jsonify({'video_formats': vfmts})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
