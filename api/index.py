@@ -6,9 +6,15 @@ from flask_caching import Cache
 from youtube_search import YoutubeSearch
 import yt_dlp
 
-# -------------------------
+# -----------------------------------------------------------------------------
+# FORCE yt-dlp to use /tmp for all its cache & cookies, and disable saving
+# -----------------------------------------------------------------------------
+# Redirect XDG cache to /tmp so yt-dlp’s default ~/.cache writes go to /tmp/.cache
+os.environ['XDG_CACHE_HOME'] = '/tmp'
+
+# -----------------------------------------------------------------------------
 # Hard‑coded Cookies Setup
-# -------------------------
+# -----------------------------------------------------------------------------
 COOKIE_VALUES = {
     'HSID': 'AlKMxCmGETuUEsp1_',
     'SSID': 'AB64ZeQGzzRHKE_Z6',
@@ -16,14 +22,14 @@ COOKIE_VALUES = {
     'SAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
     '__Secure-1PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
     '__Secure-3PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
-    'LOGIN_INFO': 'AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg:QUQ3MjNmejJfbDJoZXNYMENMVVhDTk5Eck5MTThOWDdoSTRBYXFtOUJXby1KS19lQmRTbTFMbDZTZFloMWkyWTRBYllzNnpFX09XTHE1c1hQb0IxRW9sNklXaUVPUWRFbXpKNUd2MlJaZHJselVkd0VzekpTU0YwVWQwWTh1VFhvQUt4WC1aSEtMc05JNEdMMG53N0ZYWElaMXhMZUUwRm9n',
+    'LOGIN_INFO': 'AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg:…',
     '__Secure-1PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
     '__Secure-3PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
     'SID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lym5OZNnXjAKuiGufceOlGeQACgYKAZASARESFQHGX2MiNWRWZmK_nlUa-I4_04vLuxoVAUF8yKpe0JDFVnUcmsmFbdzZ2Dgy0076',
     '__Secure-1PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyqpjlWpI7BisPMZl9wyUtEwACgYKAbASARESFQHGX2MiCrZCmAFB7SL-wz2tT4NgpxoVAUF8yKrjed1Nw8Gabz2KSoYeTIBz0076',
     '__Secure-3PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyWUiftngWwTkiz5zRpoCT-QACgYKAQ0SARESFQHGX2MiBjGEm969ztu0-M_FyoBkIhoVAUF8yKpcO6OqxylgxcPmj4xRFwQU0076',
     'PREF': 'f6=40000000&tz=Asia.Colombo',
-    'ST-3opvp5': 'session_logininfo=AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg%3AQUQ3MjNmejJfbDJoZXNYMENMVVhDTk5Eck5MTThOWDdoSTRBYXFtOUJXby1KS19lQmRTbTFMbDZTZFloMWkyWTRBYllzNnpFX09XTHE1c1hQb0IxRW9sNklXaUVPUWRFbXpKNUd2MlJaZHJselVkd0VzekpTU0YwVWQwWTh1VFhvQUt4WC1aSEtMc05JNEdMMG53N0ZYWElaMXhMZUUwRm9n',
+    'ST-3opvp5': 'session_logininfo=AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg%3A…',
     'SIDCC': 'AKEyXzWzy28BoNuI4CMv69tnHcdz4VMxy2p35aWQlH_zwre7AGBoAjdihXCt8Zro3KHNv7RI',
     '__Secure-1PSIDCC': 'AKEyXzWv6PlzpF648TXQ3WsnOuBZu1aTRaF-o5R3s49SFqP0CyXtEJlcWvgiCFNHQ4R7JcCCIQ',
     '__Secure-3PSIDCC': 'AKEyXzVSdHRpD1oYl4zX8LjBBNvIHCO2eYL6prRtpc7ijxxR4-W6hPXfVtl2eEL7lKPHljZsLg',
@@ -37,6 +43,7 @@ session = requests.Session()
 for name, value in COOKIE_VALUES.items():
     session.cookies.set(name, value, domain=".youtube.com", path="/")
 
+# Monkey-patch requests.get to always include these cookies
 _original_get = requests.get
 def get_with_cookies(url, **kwargs):
     kwargs.setdefault('cookies', session.cookies)
@@ -78,19 +85,20 @@ def to_iso_duration(duration_str: str) -> str:
 # -------------------------
 # yt-dlp Options and Extraction
 # -------------------------
-cookies_file = 'cookies.txt'
 ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
     'format': 'bestvideo+bestaudio/best',
-    'cookiefile': cookies_file
+    'save_cookies': False,
+    'cachedir': False,
 }
 ydl_opts_meta = {
     'quiet': True,
     'skip_download': True,
     'simulate': True,
     'noplaylist': True,
-    'cookiefile': cookies_file
+    'save_cookies': False,
+    'cachedir': False,
 }
 
 def extract_info(url=None, search_query=None, opts=None):
