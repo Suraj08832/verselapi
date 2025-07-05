@@ -242,7 +242,7 @@ def api_meta():
     if cached:
         return jsonify(cached)
     if not (q or u):
-        return jsonify({'error': 'Provide "url" or "search" parameter'}), 400
+        return jsonify({'error': 'Provide "url" or "search"'}), 400
     info, err, code = extract_info(u or None, q or None, opts=ydl_opts_meta)
     if err:
         return jsonify(err), code
@@ -389,7 +389,7 @@ def api_facebook():
             info = ydl.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
-    except Exception as e):
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # -------------------------
@@ -432,8 +432,5 @@ def api_video():
         return jsonify(err), code
     vfmts = [f for f in build_formats_list(info) if f['kind'] in ('video-only','progressive')]
     return jsonify({'video_formats': vfmts})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
 
