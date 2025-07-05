@@ -71,7 +71,9 @@ ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
     'format': 'bestvideo+bestaudio/best',
-    'cookiefile': cookies_file
+    'cookiefile': cookies_file,
+    # Disable filesystem caching or direct to temporary cache dir
+    'cachedir': False
 }
 ydl_opts_meta = {
     'quiet': True,
@@ -149,6 +151,7 @@ def home():
     data = {'message': '✅ YouTube API is alive'}
     cache.set(key, data)
     return jsonify(data)
+
 
 
 @app.route('/api/fast-meta')
