@@ -9,41 +9,46 @@ import yt_dlp
 # -----------------------------------------------------------------------------
 # FORCE yt-dlp to use /tmp for all its cache & cookies, and disable saving
 # -----------------------------------------------------------------------------
-# Redirect XDG cache to /tmp so yt-dlp’s default ~/.cache writes go to /tmp/.cache
 os.environ['XDG_CACHE_HOME'] = '/tmp'
 
 # -----------------------------------------------------------------------------
-# Hard‑coded Cookies Setup
+# Hard‑coded Cookies and write out a Netscape cookiefile at /tmp/yt_cookies.txt
 # -----------------------------------------------------------------------------
 COOKIE_VALUES = {
-    'HSID': 'AlKMxCmGETuUEsp1_',
-    'SSID': 'AB64ZeQGzzRHKE_Z6',
-    'APISID': 'EiB0VDTpxjSDvgT4/AmFgDk-WWb_UosYdr',
-    'SAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
-    '__Secure-1PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
-    '__Secure-3PAPISID': '9QuIQ38t88n6lTPC/A-5OB6qOM2U5jk0SM',
-    'LOGIN_INFO': 'AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg:…',
-    '__Secure-1PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
-    '__Secure-3PSIDTS': 'sidts-CjIB5H03P9QCErEJjeacOqKtDkwmy2EuEzB5FKO9R5g-4Lrb4kNIWwIHRXD5l0x1Qcmv9xAA',
-    'SID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lym5OZNnXjAKuiGufceOlGeQACgYKAZASARESFQHGX2MiNWRWZmK_nlUa-I4_04vLuxoVAUF8yKpe0JDFVnUcmsmFbdzZ2Dgy0076',
-    '__Secure-1PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyqpjlWpI7BisPMZl9wyUtEwACgYKAbASARESFQHGX2MiCrZCmAFB7SL-wz2tT4NgpxoVAUF8yKrjed1Nw8Gabz2KSoYeTIBz0076',
-    '__Secure-3PSID': 'g.a000yggHu2cvDjzkyzLGDFpGIOM7cSyt0jBaAEwtJSDhwUz7P7lyWUiftngWwTkiz5zRpoCT-QACgYKAQ0SARESFQHGX2MiBjGEm969ztu0-M_FyoBkIhoVAUF8yKpcO6OqxylgxcPmj4xRFwQU0076',
-    'PREF': 'f6=40000000&tz=Asia.Colombo',
-    'ST-3opvp5': 'session_logininfo=AFmmF2swRQIhAKz4V3Xd227B7WSs9j3TsxAD0-4EyuWRZ3RaQZGYypwsAiAomdFL3ILDR_STpUDNpzMkjdweP2BwQgg2XiJbk4BNvg%3A…',
-    'SIDCC': 'AKEyXzWzy28BoNuI4CMv69tnHcdz4VMxy2p35aWQlH_zwre7AGBoAjdihXCt8Zro3KHNv7RI',
-    '__Secure-1PSIDCC': 'AKEyXzWv6PlzpF648TXQ3WsnOuBZu1aTRaF-o5R3s49SFqP0CyXtEJlcWvgiCFNHQ4R7JcCCIQ',
-    '__Secure-3PSIDCC': 'AKEyXzVSdHRpD1oYl4zX8LjBBNvIHCO2eYL6prRtpc7ijxxR4-W6hPXfVtl2eEL7lKPHljZsLg',
-    'YSC': 'UgdL8arXsKI',
-    'VISITOR_INFO1_LIVE': 'PSQSCixrKKE',
-    'VISITOR_PRIVACY_METADATA': 'CgJJThIEGgAgIg%3D%3D',
-    '__Secure-ROLLOUT_TOKEN': 'CM3mv7nHobyXSxDhxIKuyJaOAxjSrfauyJaOAw%3D%3D'
+    'LOGIN_INFO': 'AFmmF2swRgIhAICJmHlWbD7nJS16hoMoCsVXttuU544zQZKDunt7Or2uAiEAouQIbgnIHOrg5ain1KnjPV8S6IS5Y_qjfhJTA9q8mGw:QUQ3MjNmd0VJOV8wcEZuMktZMU1mcWVLLXVyUEtlUDU3TTVZRU1Sc1dEeHJIMU5TMXRYMkRKZXJxaHFWbG5OZjB6RkYwMmh0YVozOVhCakdMRGd3NnNaeWdrMkdzWUd3SGNIMDFrUG9Qb1lDbFMzbmdrWlJONUhkNXltU2ppZ0x2Q0dlc3NoUEdpMEdCV3FXT1R6ZXNidWNPUjdSX2NqTi1B',
+    'HSID': 'AqxzJkrRI80ug-Unq',
+    'SSID': 'ASOzLUVqI1P71r82q',
+    'APISID': 'VLH8UDsyYsivKSgP/A_vem1O8GlvhnRnFx',
+    'SAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
+    '__Secure-1PAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
+    '__Secure-3PAPISID': 'Htba_Md_0cggNGiB/A30wvXNCt1kVkLUCz',
+    'PREF': 'f6=40000000&tz=Asia.Colombo&f5=30000&f7=150',
+    'SID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF4kUw7Knlv8EknC7Y-M7ZGwgACgYKASwSARASFQHGX2Micxhn9PXb5mM6vmeE_LvZAhoVAUF8yKpG8SmyvxSx-rDntMK16ZnV0076',
+    '__Secure-1PSID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF40YPCpUinYvmHSr9xkGq77wACgYKAacSARASFQHGX2Mih9f0wCcnd3k0v_DvQdAN2hoVAUF8yKoyTxZwx-t5QxF58TaB-o5R0076',
+    '__Secure-3PSID': 'g.a000ygifu1diffvjKAik1Emijr_yxZm8MPC1Iai7C_u1i_LHCiF4Oq1lVAdi9Uz-mkNwVNDj9AACgYKAQkSARASFQHGX2Mi-hBYKbdFNhGbYqd0-YzSKxoVAUF8yKriEnG14NmxOjAUvQiVlfQh0076',
+    '__Secure-1PSIDTS': 'sidts-CjIB5H03PzWd07YK-G0dpwGp8f_wgb7YCFlOlypp3Htf_qgjeQzbPiHrlqukb18A0WGgERAA',
+    '__Secure-3PSIDTS': 'sidts-CjIB5H03PzWd07YK-G0dpwGp8f_wgb7YCFlOlypp3Htf_qgjeQzbPiHrlqukb18A0WGgERAA',
+    'SIDCC': 'AKEyXzUQavgtlZI1LUgVrDR2YVqh_2NK_9odEFlj17G8TjzeVhs-xKYk9IHWZZANvriZ92rcxKw',
+    '__Secure-1PSIDCC': 'AKEyXzXFtgaqqtRPLmRdTyUkDx7cS9SOuOIqosRNvK8XAuE25WQrLGzLHS_61PGvTO7J24rYtw',
+    '__Secure-3PSIDCC': 'AKEyXzVgaSjdpcHjG0fqP2lNHRp1P0JzsQqXWV79ZKpO57nKfgPJUq5Lnssr1lh7cMoBap5w6qc',
+    'VISITOR_INFO1_LIVE': 'ohuFGFFt8z0',
+    'VISITOR_PRIVACY_METADATA': 'CgJJThIEGgAgMA%3D%3D',
+    '__Secure-ROLLOUT_TOKEN': 'CNm9w7Xfyc3cbhDfzq6gn8qMAxiq_sftw6OOAw%3D%3D',
+    'YSC': 'HtrEokFmzxQ'
 }
 
+# Write the Netscape cookiefile
+cookie_file_path = '/tmp/yt_cookies.txt'
+with open(cookie_file_path, 'w', encoding='utf-8') as f:
+    f.write('# Netscape HTTP Cookie File\n')
+    for name, value in COOKIE_VALUES.items():
+        f.write('.youtube.com\tTRUE\t/\tTRUE\t2147483647\t{}\t{}\n'.format(name, value))
+
+# Also set up requests.Session() to use those cookies
 session = requests.Session()
 for name, value in COOKIE_VALUES.items():
     session.cookies.set(name, value, domain=".youtube.com", path="/")
 
-# Monkey-patch requests.get to always include these cookies
 _original_get = requests.get
 def get_with_cookies(url, **kwargs):
     kwargs.setdefault('cookies', session.cookies)
@@ -89,6 +94,7 @@ ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
     'format': 'bestvideo+bestaudio/best',
+    'cookiefile': cookie_file_path,
     'save_cookies': False,
     'cachedir': False,
 }
@@ -97,6 +103,7 @@ ydl_opts_meta = {
     'skip_download': True,
     'simulate': True,
     'noplaylist': True,
+    'cookiefile': cookie_file_path,
     'save_cookies': False,
     'cachedir': False,
 }
@@ -406,7 +413,7 @@ def api_facebook():
             info = ydl.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
-    except Exception as e:
+    except Exception as e):
         return jsonify({'error': str(e)}), 500
 
 # -------------------------
@@ -452,4 +459,5 @@ def api_video():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
 
