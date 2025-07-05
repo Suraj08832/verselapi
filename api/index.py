@@ -5,16 +5,19 @@ from flask import Flask, request, jsonify
 from flask_caching import Cache
 from youtube_search import YoutubeSearch
 import yt_dlp
+import yt_dlp.utils
 
 # -------------------------
-# Ensure writable tmp directory for cookies and cache
+# Ensure writable tmp directory for yt-dlp cache & cookies
 # -------------------------
 tmp_dir = '/tmp/yt_dlp'
 os.makedirs(tmp_dir, exist_ok=True)
+# Redirect default cache home to tmp to avoid RO filesystem errors
+os.environ['XDG_CACHE_HOME'] = tmp_dir
 cookie_file = os.path.join(tmp_dir, 'cookies.txt')
 
 # -------------------------
-# Load Cookies and Patch requests.get
+# Load Cookies and Patch requests.get (if cookie_file present)
 # -------------------------
 if os.path.exists(cookie_file):
     cookie_jar = MozillaCookieJar(cookie_file)
@@ -37,7 +40,7 @@ app = Flask(__name__)
 # -------------------------
 cache = Cache(app, config={
     'CACHE_TYPE': 'simple',
-    'CACHE_DEFAULT_TIMEOUT': 0  # default “infinite” for manual caching
+    'CACHE_DEFAULT_TIMEOUT': 0
 })
 
 # -------------------------
@@ -62,41 +65,39 @@ def to_iso_duration(duration_str: str) -> str:
 # -------------------------
 # yt-dlp Options and Extraction
 # -------------------------
-# Disable disk-cache writes and use tmp dirs for yt-dlp
-ydl_opts_full = {
+common_opts = {
     'quiet': True,
     'skip_download': True,
-    'format': 'bestvideo+bestaudio/best',
     'cookiefile': cookie_file,
     'nocache-dir': True,
     'cache_dir': tmp_dir
 }
-ydl_opts_meta = {
-    'quiet': True,
-    'skip_download': True,
-    'simulate': True,
-    'noplaylist': True,
-    'cookiefile': cookie_file,
-    'nocache-dir': True,
-    'cache_dir': tmp_dir
-}
+ydl_opts_full = {**common_opts, 'format': 'bestvideo+bestaudio/best'}
+ydl_opts_meta = {**common_opts, 'simulate': True, 'noplaylist': True}
 
+# Extract info with graceful error handling
 
 def extract_info(url=None, search_query=None, opts=None):
     ydl_opts = opts or ydl_opts_full
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        if search_query:
-            result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
-            entries = result.get('entries')
-            if not entries:
-                return None, {'error': 'No search results'}, 404
-            return entries[0], None, None
-        else:
-            info = ydl.extract_info(url, download=False)
-            return info, None, None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            if search_query:
+                result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+                entries = result.get('entries')
+                if not entries:
+                    return None, {'error': 'No search results'}, 404
+                return entries[0], None, None
+            else:
+                info = ydl.extract_info(url, download=False)
+                return info, None, None
+    except yt_dlp.utils.DownloadError as e:
+        msg = str(e)
+        if 'Sign in to confirm' in msg:
+            return None, {'error': 'Authentication required: supply valid YouTube cookies.txt'}, 403
+        return None, {'error': msg}, 500
 
 # -------------------------
-# Format Helpers for yt-dlp
+# Format Helpers
 # -------------------------
 def get_size_bytes(fmt):
     return fmt.get('filesize') or fmt.get('filesize_approx') or 0
@@ -135,7 +136,7 @@ def build_formats_list(info):
     return fmts
 
 # -------------------------
-# Flask Routes with Manual Caching for Metadata
+# Flask Routes
 # -------------------------
 @app.route('/')
 def home():
