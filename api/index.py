@@ -7,9 +7,15 @@ from youtube_search import YoutubeSearch
 import yt_dlp
 
 # -------------------------
+# Ensure writable tmp directory for cookies and cache
+# -------------------------
+tmp_dir = '/tmp/yt_dlp'
+os.makedirs(tmp_dir, exist_ok=True)
+cookie_file = os.path.join(tmp_dir, 'cookies.txt')
+
+# -------------------------
 # Load Cookies and Patch requests.get
 # -------------------------
-cookie_file = 'cookies.txt'
 if os.path.exists(cookie_file):
     cookie_jar = MozillaCookieJar(cookie_file)
     cookie_jar.load(ignore_discard=True, ignore_expires=True)
@@ -56,20 +62,25 @@ def to_iso_duration(duration_str: str) -> str:
 # -------------------------
 # yt-dlp Options and Extraction
 # -------------------------
-cookies_file = 'cookies.txt'
+# Disable disk-cache writes and use tmp dirs for yt-dlp
 ydl_opts_full = {
     'quiet': True,
     'skip_download': True,
     'format': 'bestvideo+bestaudio/best',
-    'cookiefile': cookies_file
+    'cookiefile': cookie_file,
+    'nocache-dir': True,
+    'cache_dir': tmp_dir
 }
 ydl_opts_meta = {
     'quiet': True,
     'skip_download': True,
     'simulate': True,
     'noplaylist': True,
-    'cookiefile': cookies_file
+    'cookiefile': cookie_file,
+    'nocache-dir': True,
+    'cache_dir': tmp_dir
 }
+
 
 def extract_info(url=None, search_query=None, opts=None):
     ydl_opts = opts or ydl_opts_full
