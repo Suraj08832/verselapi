@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube API Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .api-key-section {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .api-key-input {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-key-input input {
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: #f8f9fa;
+            min-width: 200px;
+        }
+
+        .api-key-input button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .api-key-input button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 5px;
+            overflow-x: auto;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 25px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            background: white;
+            color: #495057;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .video-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-card img {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .video-card h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .video-card p {
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+
+        .format-list {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .format-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .format-item:last-child {
+            border-bottom: none;
+        }
+
+        .format-info {
+            flex: 1;
+        }
+
+        .format-quality {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 YouTube API Frontend</h1>
+            <p>Extract video information, metadata, and download links</p>
+        </div>
+
+        <div class="api-key-section">
+            <div class="api-key-input">
+                <input type="password" id="apiKey" placeholder="Enter API Key" value="zefron@123">
+                <button onclick="setApiKey()">Set API Key</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('search')">🔍 Search & URL</button>
+                <button class="tab" onclick="showTab('metadata')">📊 Full Metadata</button>
+                <button class="tab" onclick="showTab('download')">⬇️ Download Info</button>
+                <button class="tab" onclick="showTab('social')">📱 Social Media</button>
+                <button class="tab" onclick="showTab('channel')">📺 Channel Info</button>
+            </div>
+
+            <!-- Search & URL Tab -->
+            <div id="search" class="tab-content active">
+                <h2>Quick Video Information</h2>
+                <div class="form-group">
+                    <label for="searchQuery">Search Query:</label>
+                    <input type="text" id="searchQuery" placeholder="Enter search term (e.g., 'Python tutorial')">
+                </div>
+                <div class="form-group">
+                    <label for="videoUrl">OR Video URL:</label>
+                    <input type="url" id="videoUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <button class="btn" onclick="getFastMeta()">Get Video Info</button>
+                <div id="searchResult" class="result-section"></div>
+            </div>
+
+            <!-- Metadata Tab -->
+            <div id="metadata" class="tab-content">
+                <h2>Complete Video Metadata</h2>
+                <div class="form-group">
+                    <label for="metaSearch">Search Query:</label>
+                    <input type="text" id="metaSearch" placeholder="Enter search term">
+                </div>
+                <div class="form-group">
+                    <label for="metaUrl">OR Video URL:</label>
+                    <input type="url" id="metaUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <button class="btn" onclick="getFullMetadata()">Get Full Metadata</button>
+                <div id="metadataResult" class="result-section"></div>
+            </div>
+
+            <!-- Download Tab -->
+            <div id="download" class="tab-content">
+                <h2>Download Information</h2>
+                <div class="form-group">
+                    <label for="downloadSearch">Search Query:</label>
+                    <input type="text" id="downloadSearch" placeholder="Enter search term">
+                </div>
+                <div class="form-group">
+                    <label for="downloadUrl">OR Video URL:</label>
+                    <input type="url" id="downloadUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <button class="btn" onclick="getDownloadInfo()">Get Download Info</button>
+                <div id="downloadResult" class="result-section"></div>
+            </div>
+
+            <!-- Social Media Tab -->
+            <div id="social" class="tab-content">
+                <h2>Social Media Links</h2>
+                <div class="form-group">
+                    <label for="socialUrl">Social Media URL:</label>
+                    <input type="url" id="socialUrl" placeholder="Instagram, Twitter, TikTok, or Facebook URL">
+                </div>
+                <button class="btn" onclick="getSocialInfo()">Extract Info</button>
+                <div id="socialResult" class="result-section"></div>
+            </div>
+
+            <!-- Channel Tab -->
+            <div id="channel" class="tab-content">
+                <h2>Channel Information</h2>
+                <div class="form-group">
+                    <label for="channelId">Channel ID:</label>
+                    <input type="text" id="channelId" placeholder="Enter channel ID">
+                </div>
+                <div class="form-group">
+                    <label for="channelUrl">OR Channel URL:</label>
+                    <input type="url" id="channelUrl" placeholder="https://www.youtube.com/channel/...">
+                </div>
+                <button class="btn" onclick="getChannelInfo()">Get Channel Info</button>
+                <div id="channelResult" class="result-section"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentApiKey = 'zefron@123';
+        const baseUrl = window.location.origin;
+
+        function setApiKey() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey.trim()) {
+                currentApiKey = apiKey.trim();
+                showMessage('API Key set successfully!', 'success');
+            } else {
+                showMessage('Please enter a valid API key', 'error');
+            }
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to selected tab
+            event.target.classList.add('active');
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            messageDiv.style.position = 'fixed';
+            messageDiv.style.top = '20px';
+            messageDiv.style.right = '20px';
+            messageDiv.style.zIndex = '1000';
+            messageDiv.style.maxWidth = '300px';
+            
+            document.body.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        function showLoading(resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        function hideLoading(resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.classList.remove('show');
+        }
+
+        async function makeApiCall(endpoint, params) {
+            const url = new URL(`${baseUrl}${endpoint}`);
+            url.searchParams.append('api_key', currentApiKey);
+            
+            for (const [key, value] of Object.entries(params)) {
+                if (value) {
+                    url.searchParams.append(key, value);
+                }
+            }
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                throw new Error(`API call failed: ${error.message}`);
+            }
+        }
+
+        async function getFastMeta() {
+            const search = document.getElementById('searchQuery').value.trim();
+            const url = document.getElementById('videoUrl').value.trim();
+            
+            if (!search && !url) {
+                showMessage('Please provide either search query or video URL', 'error');
+                return;
+            }
+
+            showLoading('searchResult');
+            
+            try {
+                const data = await makeApiCall('/api/fast-meta', { search, url });
+                displayFastMetaResult(data);
+            } catch (error) {
+                showMessage(error.message, 'error');
+                hideLoading('searchResult');
+            }
+        }
+
+        function displayFastMetaResult(data) {
+            const resultDiv = document.getElementById('searchResult');
+            resultDiv.innerHTML = `
+                <div class="video-card">
+                    ${data.thumbnail ? `<img src="${data.thumbnail}" alt="Video thumbnail">` : ''}
+                    <h3>${data.title || 'No title'}</h3>
+                    <p><strong>Duration:</strong> ${data.duration || 'Unknown'}</p>
+                    <p><strong>Link:</strong> <a href="${data.link}" target="_blank">${data.link}</a></p>
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        async function getFullMetadata() {
+            const search = document.getElementById('metaSearch').value.trim();
+            const url = document.getElementById('metaUrl').value.trim();
+            
+            if (!search && !url) {
+                showMessage('Please provide either search query or video URL', 'error');
+                return;
+            }
+
+            showLoading('metadataResult');
+            
+            try {
+                const data = await makeApiCall('/api/all', { search, url });
+                displayFullMetadataResult(data);
+            } catch (error) {
+                showMessage(error.message, 'error');
+                hideLoading('metadataResult');
+            }
+        }
+
+        function displayFullMetadataResult(data) {
+            const resultDiv = document.getElementById('metadataResult');
+            resultDiv.innerHTML = `
+                <div class="video-card">
+                    ${data.thumbnail ? `<img src="${data.thumbnail}" alt="Video thumbnail">` : ''}
+                    <h3>${data.title || 'No title'}</h3>
+                    <p><strong>Duration:</strong> ${data.duration || 'Unknown'} seconds</p>
+                    <p><strong>Upload Date:</strong> ${data.upload_date || 'Unknown'}</p>
+                    <p><strong>Views:</strong> ${data.view_count ? data.view_count.toLocaleString() : 'Unknown'}</p>
+                    <p><strong>Likes:</strong> ${data.like_count ? data.like_count.toLocaleString() : 'Unknown'}</p>
+                    <p><strong>Channel:</strong> ${data.channel?.name || 'Unknown'}</p>
+                    <p><strong>Description:</strong> ${data.description ? data.description.substring(0, 200) + '...' : 'No description'}</p>
+                    
+                    <div class="format-list">
+                        <h4>Available Formats (${data.formats?.length || 0})</h4>
+                        ${data.formats ? data.formats.slice(0, 5).map(format => `
+                            <div class="format-item">
+                                <div class="format-info">
+                                    <strong>${format.kind}</strong> - ${format.width}x${format.height} ${format.fps}fps
+                                    <br><small>${format.filesize} - ${format.ext}</small>
+                                </div>
+                                <span class="format-quality">${format.format_id}</span>
+                            </div>
+                        `).join('') : 'No formats available'}
+                    </div>
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        async function getDownloadInfo() {
+            const search = document.getElementById('downloadSearch').value.trim();
+            const url = document.getElementById('downloadUrl').value.trim();
+            
+            if (!search && !url) {
+                showMessage('Please provide either search query or video URL', 'error');
+                return;
+            }
+
+            showLoading('downloadResult');
+            
+            try {
+                const data = await makeApiCall('/download', { search, url });
+                displayDownloadResult(data);
+            } catch (error) {
+                showMessage(error.message, 'error');
+                hideLoading('downloadResult');
+            }
+        }
+
+        function displayDownloadResult(data) {
+            const resultDiv = document.getElementById('downloadResult');
+            resultDiv.innerHTML = `
+                <div class="format-list">
+                    <h3>Available Download Formats (${data.formats?.length || 0})</h3>
+                    ${data.formats ? data.formats.map(format => `
+                        <div class="format-item">
+                            <div class="format-info">
+                                <strong>${format.kind}</strong> - ${format.width}x${format.height} ${format.fps}fps
+                                <br><small>${format.filesize} - ${format.ext}</small>
+                            </div>
+                            <span class="format-quality">${format.format_id}</span>
+                        </div>
+                    `).join('') : 'No formats available'}
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        async function getSocialInfo() {
+            const url = document.getElementById('socialUrl').value.trim();
+            
+            if (!url) {
+                showMessage('Please provide a social media URL', 'error');
+                return;
+            }
+
+            showLoading('socialResult');
+            
+            try {
+                let endpoint = '';
+                if (url.includes('instagram.com')) endpoint = '/api/instagram';
+                else if (url.includes('twitter.com') || url.includes('x.com')) endpoint = '/api/twitter';
+                else if (url.includes('tiktok.com')) endpoint = '/api/tiktok';
+                else if (url.includes('facebook.com')) endpoint = '/api/facebook';
+                else {
+                    throw new Error('Unsupported social media platform');
+                }
+
+                const data = await makeApiCall(endpoint, { url });
+                displaySocialResult(data, endpoint);
+            } catch (error) {
+                showMessage(error.message, 'error');
+                hideLoading('socialResult');
+            }
+        }
+
+        function displaySocialResult(data, endpoint) {
+            const resultDiv = document.getElementById('socialResult');
+            const platform = endpoint.split('/').pop();
+            
+            resultDiv.innerHTML = `
+                <div class="video-card">
+                    <h3>${platform.charAt(0).toUpperCase() + platform.slice(1)} Content</h3>
+                    <p><strong>Title:</strong> ${data.title || 'No title'}</p>
+                    <p><strong>URL:</strong> <a href="${data.webpage_url || data.url}" target="_blank">${data.webpage_url || data.url}</a></p>
+                    ${data.duration ? `<p><strong>Duration:</strong> ${data.duration} seconds</p>` : ''}
+                    ${data.description ? `<p><strong>Description:</strong> ${data.description.substring(0, 200)}...</p>` : ''}
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        async function getChannelInfo() {
+            const id = document.getElementById('channelId').value.trim();
+            const url = document.getElementById('channelUrl').value.trim();
+            
+            if (!id && !url) {
+                showMessage('Please provide either channel ID or channel URL', 'error');
+                return;
+            }
+
+            showLoading('channelResult');
+            
+            try {
+                const data = await makeApiCall('/api/channel', { id, url });
+                displayChannelResult(data);
+            } catch (error) {
+                showMessage(error.message, 'error');
+                hideLoading('channelResult');
+            }
+        }
+
+        function displayChannelResult(data) {
+            const resultDiv = document.getElementById('channelResult');
+            resultDiv.innerHTML = `
+                <div class="video-card">
+                    <h3>${data.name || 'Unknown Channel'}</h3>
+                    <p><strong>Channel ID:</strong> ${data.id || 'Unknown'}</p>
+                    <p><strong>URL:</strong> <a href="${data.url}" target="_blank">${data.url}</a></p>
+                    ${data.subscriber_count ? `<p><strong>Subscribers:</strong> ${data.subscriber_count.toLocaleString()}</p>` : ''}
+                    ${data.video_count ? `<p><strong>Videos:</strong> ${data.video_count.toLocaleString()}</p>` : ''}
+                    ${data.description ? `<p><strong>Description:</strong> ${data.description.substring(0, 200)}...</p>` : ''}
+                </div>
+            `;
+            resultDiv.classList.add('show');
+        }
+
+        // Initialize with default API key
+        document.addEventListener('DOMContentLoaded', function() {
+            setApiKey();
+        });
+    </script>
+</body>
+</html>

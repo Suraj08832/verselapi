@@ -8,6 +8,20 @@ from youtube_search import YoutubeSearch
 import yt_dlp
 
 # -------------------------
+# API Key Configuration
+# -------------------------
+API_KEY = "zefron@123"
+
+def require_api_key(f):
+    def decorated_function(*args, **kwargs):
+        api_key = request.args.get('api_key') or request.headers.get('X-API-Key')
+        if api_key != API_KEY:
+            return jsonify({'error': 'Invalid or missing API key'}), 401
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
+# -------------------------
 # Use Temp Directory for All File Operations (Vercel Compatibility)
 # -------------------------
 # Determine writable temp directory
@@ -141,6 +155,7 @@ def build_formats_list(info):
 # Flask Routes (with Manual Caching)
 # -------------------------
 @app.route('/')
+@require_api_key
 def home():
     key = 'home'
     if 'latest' in request.args:
@@ -155,6 +170,7 @@ def home():
 
 
 @app.route('/api/fast-meta')
+@require_api_key
 def api_fast_meta():
     q = request.args.get('search', '').strip()
     u = request.args.get('url', '').strip()
@@ -195,6 +211,7 @@ def api_fast_meta():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/all')
+@require_api_key
 def api_all():
     q = request.args.get('search', '').strip()
     u = request.args.get('url', '').strip()
@@ -235,6 +252,7 @@ def api_all():
     return jsonify(data)
 
 @app.route('/api/meta')
+@require_api_key
 def api_meta():
     q = request.args.get('search', '').strip()
     u = request.args.get('url', '').strip()
@@ -258,6 +276,7 @@ def api_meta():
     return jsonify(data)
 
 @app.route('/api/channel')
+@require_api_key
 def api_channel():
     cid = request.args.get('id', '').strip()
     cu = request.args.get('url', '').strip()
@@ -287,6 +306,7 @@ def api_channel():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/playlist')
+@require_api_key
 def api_playlist():
     pid = request.args.get('id', '').strip()
     pu = request.args.get('url', '').strip()
@@ -320,6 +340,7 @@ def api_playlist():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/instagram')
+@require_api_key
 def api_instagram():
     u = request.args.get('url', '').strip()
     key = f"instagram:{u}"
@@ -339,6 +360,7 @@ def api_instagram():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/twitter')
+@require_api_key
 def api_twitter():
     u = request.args.get('url', '').strip()
     key = f"twitter:{u}"
@@ -358,6 +380,7 @@ def api_twitter():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tiktok')
+@require_api_key
 def api_tiktok():
     u = request.args.get('url', '').strip()
     key = f"tiktok:{u}"
@@ -377,6 +400,7 @@ def api_tiktok():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/facebook')
+@require_api_key
 def api_facebook():
     u = request.args.get('url', '').strip()
     key = f"facebook:{u}"
@@ -401,6 +425,7 @@ def api_facebook():
 STREAM_TIMEOUT = 5 * 3600
 
 @app.route('/download')
+@require_api_key
 @cache.cached(timeout=STREAM_TIMEOUT, key_prefix=lambda: f"download:{request.full_path}")
 def api_download():
     url = request.args.get('url')
@@ -413,6 +438,7 @@ def api_download():
     return jsonify({'formats': build_formats_list(info)})
 
 @app.route('/api/audio')
+@require_api_key
 def api_audio():
     url = request.args.get('url')
     search = request.args.get('search')
@@ -425,6 +451,7 @@ def api_audio():
     return jsonify({'audio_formats': afmts})
 
 @app.route('/api/video')
+@require_api_key
 def api_video():
     url = request.args.get('url')
     search = request.args.get('search')
