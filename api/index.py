@@ -6,6 +6,14 @@ from flask import Flask, request, jsonify
 from flask_caching import Cache
 from youtube_search import YoutubeSearch
 import yt_dlp
+import logging
+import datetime
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # -------------------------
 # API Key Configuration
@@ -99,16 +107,32 @@ ydl_opts_meta = {
 
 def extract_info(url=None, search_query=None, opts=None):
     ydl_opts = opts or ydl_opts_full
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        if search_query:
-            result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
-            entries = result.get('entries')
-            if not entries:
-                return None, {'error': 'No search results'}, 404
-            return entries[0], None, None
-        else:
-            info = ydl.extract_info(url, download=False)
-            return info, None, None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            if search_query:
+                # For search queries, first get search results
+                result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+                entries = result.get('entries')
+                if not entries:
+                    return None, {'error': 'No search results'}, 404
+                
+                # Get the first video ID from search results
+                first_video = entries[0]
+                video_id = first_video.get('id')
+                
+                if not video_id:
+                    return None, {'error': 'Invalid video ID from search'}, 404
+                
+                # Now extract full info for this specific video
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+                info = ydl.extract_info(video_url, download=False)
+                return info, None, None
+            else:
+                # Direct URL provided
+                info = ydl.extract_info(url, download=False)
+                return info, None, None
+    except Exception as e:
+        return None, {'error': f'Extraction failed: {str(e)}'}, 500
 
 # -------------------------
 # Format Helpers for yt-dlp
@@ -426,29 +450,86 @@ STREAM_TIMEOUT = 5 * 3600
 
 @app.route('/download')
 @require_api_key
-@cache.cached(timeout=STREAM_TIMEOUT, key_prefix=lambda: f"download:{request.full_path}")
 def api_download():
-    url = request.args.get('url')
-    search = request.args.get('search')
-    if not (url or search):
-        return jsonify({'error': 'Provide "url" or "search"'}), 400
-    info, err, code = extract_info(url, search)
-    if err:
-        return jsonify(err), code
-    return jsonify({'formats': build_formats_list(info)})
+    try:
+        url = request.args.get('url')
+        search = request.args.get('search')
+        
+        if not (url or search):
+            return jsonify({'error': 'Provide "url" or "search" parameter'}), 400
+        
+        logging.info(f"Download request - URL: {url}, Search: {search}")
+        
+        info, err, code = extract_info(url, search)
+        if err:
+            logging.error(f"Extract info failed: {err}")
+            return jsonify(err), code
+        
+        if not info:
+            logging.error("No video info extracted")
+            return jsonify({'error': 'Failed to extract video information'}), 500
+        
+        formats = build_formats_list(info)
+        if not formats:
+            logging.warning("No formats found for video")
+            return jsonify({'error': 'No download formats available', 'formats': []}), 404
+        
+        logging.info(f"Successfully extracted {len(formats)} formats")
+        return jsonify({
+            'formats': formats,
+            'title': info.get('title'),
+            'duration': info.get('duration'),
+            'thumbnail': info.get('thumbnail')
+        })
+        
+    except Exception as e:
+        logging.error(f"Exception in download endpoint: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/api/audio')
 @require_api_key
 def api_audio():
-    url = request.args.get('url')
-    search = request.args.get('search')
-    if not (url or search):
-        return jsonify({'error': 'Provide "url" or "search"'}), 400
-    info, err, code = extract_info(url, search)
-    if err:
-        return jsonify(err), code
-    afmts = [f for f in build_formats_list(info) if f['kind'] in ('audio-only','progressive')]
-    return jsonify({'audio_formats': afmts})
+    try:
+        url = request.args.get('url')
+        search = request.args.get('search')
+        
+        if not (url or search):
+            return jsonify({'error': 'Provide "url" or "search" parameter'}), 400
+        
+        logging.info(f"Audio request - URL: {url}, Search: {search}")
+        
+        info, err, code = extract_info(url, search)
+        if err:
+            logging.error(f"Extract info failed: {err}")
+            return jsonify(err), code
+        
+        if not info:
+            logging.error("No video info extracted")
+            return jsonify({'error': 'Failed to extract video information'}), 500
+        
+        # Get all formats and filter for audio
+        all_formats = build_formats_list(info)
+        audio_formats = [f for f in all_formats if f['kind'] in ('audio-only', 'progressive')]
+        
+        if not audio_formats:
+            logging.warning("No audio formats found for video")
+            return jsonify({'error': 'No audio formats available', 'audio_formats': []}), 404
+        
+        # Sort by quality (bitrate)
+        audio_formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
+        
+        logging.info(f"Successfully extracted {len(audio_formats)} audio formats")
+        return jsonify({
+            'audio_formats': audio_formats,
+            'title': info.get('title'),
+            'duration': info.get('duration'),
+            'thumbnail': info.get('thumbnail'),
+            'best_audio_url': audio_formats[0]['url'] if audio_formats else None
+        })
+        
+    except Exception as e:
+        logging.error(f"Exception in audio endpoint: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/api/video')
 @require_api_key
@@ -462,5 +543,25 @@ def api_video():
         return jsonify(err), code
     vfmts = [f for f in build_formats_list(info) if f['kind'] in ('video-only','progressive')]
     return jsonify({'video_formats': vfmts})
+
+@app.route('/test')
+@require_api_key
+def test_endpoint():
+    """Test endpoint to verify API functionality"""
+    try:
+        return jsonify({
+            'status': 'success',
+            'message': 'API is working correctly',
+            'timestamp': str(datetime.datetime.now()),
+            'endpoints': [
+                '/api/fast-meta',
+                '/api/all', 
+                '/download',
+                '/api/audio',
+                '/api/video'
+            ]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
