@@ -36,13 +36,31 @@ def require_api_key(f):
 temp_dir = os.environ.get('TMPDIR', tempfile.gettempdir())
 # Paths for cookie storage
 cookie_file = os.path.join(temp_dir, 'cookies.txt')
-cookies_file = cookie_file
+project_cookies = os.path.join(os.getcwd(), 'cookies.txt')
+
+# Resolve a readable cookies path (temp → project root → env var)
+COOKIES_PATH = None
+try:
+    if os.path.exists(cookie_file):
+        COOKIES_PATH = cookie_file
+    elif os.path.exists(project_cookies):
+        COOKIES_PATH = project_cookies
+    elif os.getenv('YT_COOKIES'):
+        # Write env cookies to temp in Netscape format
+        with open(cookie_file, 'w', encoding='utf-8') as f:
+            f.write(os.getenv('YT_COOKIES'))
+        COOKIES_PATH = cookie_file
+except Exception:
+    COOKIES_PATH = None
+
+# Keep backward compatibility for any direct references
+cookies_file = COOKIES_PATH or cookie_file
 
 # -------------------------
 # Load Cookies and Patch requests.get
 # -------------------------
-if os.path.exists(cookie_file):
-    cookie_jar = MozillaCookieJar(cookie_file)
+if COOKIES_PATH and os.path.exists(COOKIES_PATH):
+    cookie_jar = MozillaCookieJar(COOKIES_PATH)
     cookie_jar.load(ignore_discard=True, ignore_expires=True)
     session = requests.Session()
     session.cookies = cookie_jar
@@ -89,50 +107,82 @@ def to_iso_duration(duration_str: str) -> str:
 # -------------------------
 # yt-dlp Options and Extraction
 # -------------------------
-ydl_opts_full = {
-    'quiet': True,
-    'skip_download': True,
-    'format': 'bestvideo+bestaudio/best',
-    'cookiefile': cookies_file,
-    # Disable filesystem caching or direct to temporary cache dir
-    'cachedir': False
-}
-ydl_opts_meta = {
-    'quiet': True,
-    'skip_download': True,
-    'simulate': True,
-    'noplaylist': True,
-    'cookiefile': cookies_file
+ANDROID_YT_UA = 'com.google.android.youtube/19.15.39 (Linux; U; Android 13) gzip'
+MOBILE_UA = 'Mozilla/5.0 (Linux; Android 13; Mobile; rv:121.0) Gecko/121.0 Firefox/121.0'
+DEFAULT_HTTP_HEADERS = {
+    'User-Agent': MOBILE_UA,
+    'Accept-Language': 'en-US,en;q=0.9'
 }
 
+def get_ydl_opts(meta: bool = False, use_mobile_client: bool = False):
+    opts = {
+        'quiet': True,
+        'skip_download': True,
+        'cachedir': False,
+        'http_headers': DEFAULT_HTTP_HEADERS.copy()
+    }
+    if not meta:
+        opts['format'] = 'bestvideo+bestaudio/best'
+    else:
+        opts['simulate'] = True
+        opts['noplaylist'] = True
+    if COOKIES_PATH and os.path.exists(COOKIES_PATH):
+        opts['cookiefile'] = COOKIES_PATH
+    if use_mobile_client:
+        # Try Android client to bypass some checks
+        opts.setdefault('extractor_args', {})
+        opts['extractor_args']['youtube'] = {
+            'player_client': ['android']
+        }
+        opts['http_headers'] = {
+            'User-Agent': MOBILE_UA,
+            'Accept-Language': 'en-US,en;q=0.9'
+        }
+    return opts
+
 def extract_info(url=None, search_query=None, opts=None):
-    ydl_opts = opts or ydl_opts_full
+    # Primary attempt
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            if search_query:
-                # For search queries, first get search results
+        if search_query:
+            with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
                 result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
                 entries = result.get('entries')
                 if not entries:
                     return None, {'error': 'No search results'}, 404
-                
-                # Get the first video ID from search results
-                first_video = entries[0]
-                video_id = first_video.get('id')
-                
+                video_id = (entries[0] or {}).get('id')
                 if not video_id:
                     return None, {'error': 'Invalid video ID from search'}, 404
-                
-                # Now extract full info for this specific video
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
-                info = ydl.extract_info(video_url, download=False)
+            with yt_dlp.YoutubeDL(get_ydl_opts(meta=False)) as ydl_full:
+                info = ydl_full.extract_info(video_url, download=False)
                 return info, None, None
-            else:
-                # Direct URL provided
-                info = ydl.extract_info(url, download=False)
+        else:
+            with yt_dlp.YoutubeDL(get_ydl_opts(meta=False)) as ydl_full:
+                info = ydl_full.extract_info(url, download=False)
                 return info, None, None
     except Exception as e:
-        return None, {'error': f'Extraction failed: {str(e)}'}, 500
+        err_msg = str(e)
+        # Fallback with mobile client to try bypass
+        try:
+            if search_query:
+                with yt_dlp.YoutubeDL(get_ydl_opts(meta=True, use_mobile_client=True)) as ydl:
+                    result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+                    entries = result.get('entries')
+                    if not entries:
+                        return None, {'error': 'No search results'}, 404
+                    video_id = (entries[0] or {}).get('id')
+                    if not video_id:
+                        return None, {'error': 'Invalid video ID from search'}, 404
+                    video_url = f"https://www.youtube.com/watch?v={video_id}"
+                with yt_dlp.YoutubeDL(get_ydl_opts(meta=False, use_mobile_client=True)) as ydl_full:
+                    info = ydl_full.extract_info(video_url, download=False)
+                    return info, None, None
+            else:
+                with yt_dlp.YoutubeDL(get_ydl_opts(meta=False, use_mobile_client=True)) as ydl_full:
+                    info = ydl_full.extract_info(url, download=False)
+                    return info, None, None
+        except Exception as e2:
+            return None, {'error': f'Extraction failed: {err_msg or str(e2)}'}, 500
 
 # -------------------------
 # Format Helpers for yt-dlp
@@ -219,7 +269,7 @@ def api_fast_meta():
                     'thumbnail': vid.get('thumbnails', [None])[0]
                 }
         else:
-            with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+            with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
                 info = ydl.extract_info(u, download=False)
             result = {
                 'title': info.get('title'),
@@ -313,7 +363,7 @@ def api_channel():
     if not (cid or cu):
         return jsonify({'error': 'Provide "url" or "id" parameter for channel'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
             info = ydl.extract_info(cid or cu, download=False)
         data = {
             'id': info.get('id'),
@@ -343,7 +393,7 @@ def api_playlist():
     if not (pid or pu):
         return jsonify({'error': 'Provide "url" or "id" parameter for playlist'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_full) as ydl:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=False)) as ydl:
             info = ydl.extract_info(pid or pu, download=False)
         videos = [{
             'id': e.get('id'),
@@ -376,7 +426,7 @@ def api_instagram():
     if not u:
         return jsonify({'error': 'Provide "url" parameter for Instagram'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
             info = ydl.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
@@ -396,7 +446,7 @@ def api_twitter():
     if not u:
         return jsonify({'error': 'Provide "url" parameter for Twitter'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
             info = ydl.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
@@ -416,7 +466,7 @@ def api_tiktok():
     if not u:
         return jsonify({'error': 'Provide "url" parameter for TikTok'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydv:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydv:
             info = ydv.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
@@ -436,7 +486,7 @@ def api_facebook():
     if not u:
         return jsonify({'error': 'Provide "url" parameter for Facebook'}), 400
     try:
-        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+        with yt_dlp.YoutubeDL(get_ydl_opts(meta=True)) as ydl:
             info = ydl.extract_info(u, download=False)
         cache.set(key, info)
         return jsonify(info)
@@ -563,4 +613,5 @@ def test_endpoint():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
